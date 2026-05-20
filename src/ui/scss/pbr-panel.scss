@@ -1,0 +1,30 @@
+@use 'colors.scss' as *;
+
+// Position the PBR panel on the LEFT side of the viewport, mid-height — so it
+// doesn't collide with the existing view/color panels (right side, mid-height).
+#pbr-panel {
+    top: 50%;
+    transform: translate(0, -50%);
+    left: 56px;
+    width: 320px;
+    flex-direction: column;
+    display: flex;
+
+    & > .view-panel-row {
+        display: flex;
+        flex-direction: row;
+        padding: 2px;
+        height: 28px;
+
+        & > .view-panel-row-label {
+            flex-grow: 1;
+            color: $text-primary;
+            line-height: 24px;
+            padding-left: 6px;
+        }
+
+        & > .view-panel-row-picker {
+            min-width: 180px;
+        }
+    }
+}
