@@ -21,38 +21,49 @@ const registerFocalMarker = (scene: Scene, events: Events) => {
     if (!app) return;
 
     const geom = new TorusGeometry({
-        tubeRadius: 0.012,
-        ringRadius: 0.18,
+        tubeRadius: 0.04,
+        ringRadius: 0.5,
         segments: 64,
-        sides: 12
+        sides: 16
     });
     const mesh = Mesh.fromGeometry(app.graphicsDevice, geom);
     const mat = new StandardMaterial();
     mat.useLighting = false;
     mat.diffuse = new Color(0, 0, 0);
     mat.emissive = new Color(1, 1, 1);
-    mat.opacity = 0.95;
+    mat.opacity = 1.0;
     mat.blendType = BLEND_NORMAL;
-    mat.depthTest = false;   // always visible, even through geometry
+    mat.depthTest = false;   // always visible, even through geometry/splats
     mat.depthWrite = false;
     mat.update();
 
     const meshInstance = new MeshInstance(mesh, mat);
+    // Render on the gizmo layer so it draws after all splats and isn't
+    // sorted/occluded by them.
+    const gizmoLayerId = (scene as any).gizmoLayer?.id;
     const entity = new Entity('focal-marker');
-    entity.addComponent('render', { meshInstances: [meshInstance] });
+    entity.addComponent('render', {
+        meshInstances: [meshInstance],
+        ...(gizmoLayerId !== undefined ? { layers: [gizmoLayerId] } : {})
+    });
     entity.enabled = false;
     app.root.addChild(entity);
 
     events.on('camera.focalPointPicked', (details: { position: Vec3 }) => {
         entity.setPosition(details.position);
-        // Scale with distance to keep the ring a roughly constant on-screen
-        // size — same trick as the transform gizmo.
-        const cam = (scene as any).camera?.entity;
-        if (cam) {
-            const d = entity.getPosition().distance(cam.getPosition());
-            const s = Math.max(0.3, d * 0.05);
+        // Keep the ring a roughly constant on-screen size, like the gizmo.
+        const camEntity = (scene as any).camera?.mainCamera;
+        if (camEntity) {
+            const d = entity.getPosition().distance(camEntity.getPosition());
+            const s = Math.max(0.4, d * 0.18);
             entity.setLocalScale(s, s, s);
+        } else {
+            entity.setLocalScale(1, 1, 1);
         }
+        // Leave the ring flat in the world XZ plane (lying on the surface) —
+        // matches the superspl.at marker style. Skipping billboard avoids
+        // edge-on flicker when the camera looks along the ring's normal.
+        entity.setLocalEulerAngles(0, 0, 0);
         entity.enabled = true;
         (scene as any).forceRender = true;
     });
