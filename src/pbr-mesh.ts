@@ -16,6 +16,9 @@ class PbrMesh extends Element {
     asset: Asset;
     entity: Entity;
     private _materials: StandardMaterial[] = [];
+    // Snapshot of the GLB-shipped material values so "Reset to GLB defaults"
+    // can restore them.
+    private _glbDefaults: { gloss: number; metalness: number; useMetalness: boolean }[] = [];
 
     constructor(asset: Asset) {
         super(ElementType.model);
@@ -25,6 +28,34 @@ class PbrMesh extends Element {
         this.entity = container.instantiateRenderEntity();
         this.entity.name = `pbr-mesh:${asset.name}`;
         this._collectMaterials(this.entity);
+        this._snapshotDefaults();
+    }
+
+    private _snapshotDefaults() {
+        this._glbDefaults = this._materials.map(m => ({
+            gloss: m.gloss,
+            metalness: m.metalness,
+            useMetalness: m.useMetalness,
+        }));
+    }
+
+    /** Returns the GLB's first material's defaults (for showing in sliders). */
+    getGlbDefaults(): { roughness: number; metallic: number } {
+        if (this._glbDefaults.length === 0) return { roughness: 0.5, metallic: 0 };
+        const d = this._glbDefaults[0];
+        return { roughness: 1 - d.gloss, metallic: d.useMetalness ? d.metalness : 0 };
+    }
+
+    /** Restore each material to its original GLB-shipped values. */
+    resetToGlbDefaults() {
+        for (let i = 0; i < this._materials.length && i < this._glbDefaults.length; i++) {
+            const m = this._materials[i];
+            const d = this._glbDefaults[i];
+            m.gloss = d.gloss;
+            m.metalness = d.metalness;
+            m.useMetalness = d.useMetalness;
+            (m as any).update();
+        }
     }
 
     private _collectMaterials(entity: Entity) {

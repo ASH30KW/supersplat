@@ -1,5 +1,5 @@
 // Wires the PBR panel's events to the loaders/scene. Owns the currently-loaded
-// PbrMesh and the current cubemap so subsequent loads can swap them out cleanly.
+// PbrMesh and the current cubemap so subsequent loads can swap them out.
 
 import { Scene } from './scene';
 import { Events } from './events';
@@ -7,14 +7,13 @@ import { PbrMesh } from './pbr-mesh';
 import { loadGlb, loadCubemap, applyCubemapIbl, clearCubemap } from './pbr-mesh-loader';
 
 // URLs are relative to the same origin that serves SuperSplat (serve_spz.py).
-// We rely on extra routes /glb/<name>.glb and /cube/<env>/<face>.jpg, plus
-// /pbr-assets returning {glbs:[...], cubemaps:[...]} for the dropdowns.
-const GLB_URL  = (name: string) => `/glb/${name}.glb`;
-const CUBE_URL = (env: string)  => `/cube/${env}`;
+const GLB_URL      = (name: string) => `/glb/${name}.glb`;
+const CUBE_URL     = (env: string)  => `/cube/${env}`;
+const ROOM_PLY_URL = (name: string) => `/room-ply/${name}.ply`;
 
 const registerPbrEvents = (scene: Scene, events: Events) => {
     let current: PbrMesh | null = null;
-    let currentCubemap: any = null;  // a PlayCanvas Texture
+    let currentCubemap: any = null;
 
     // Populate the dropdowns once at startup.
     (async () => {
@@ -51,9 +50,24 @@ const registerPbrEvents = (scene: Scene, events: Events) => {
             current = mesh;
             applyCubemapIbl(app, cube, true);
             currentCubemap = cube;
-            console.log('[pbr] loaded');
+            // Snap the panel sliders to the GLB's shipped material values.
+            events.fire('pbr.glbDefaults', mesh.getGlbDefaults());
+            console.log('[pbr] loaded; defaults', mesh.getGlbDefaults());
         } catch (err) {
             console.error('[pbr] load failed:', err);
+        }
+    });
+
+    // Hand a room PLY URL to SuperSplat's own importer — it handles 3DGS PLYs
+    // natively, including the camera-fit and the splat layer setup.
+    events.on('pbr.loadRoom', async ({ room }: { room: string }) => {
+        const url = ROOM_PLY_URL(room);
+        try {
+            console.log('[pbr] loading room', room, url);
+            await events.invoke('import', [{ filename: `${room}.ply`, url }]);
+            console.log('[pbr] room loaded');
+        } catch (err) {
+            console.error('[pbr] room load failed:', err);
         }
     });
 
@@ -66,6 +80,12 @@ const registerPbrEvents = (scene: Scene, events: Events) => {
     events.on('pbr.exposure', (v: number) => {
         const app = (scene as any).app;
         if (app && app.scene) app.scene.exposure = v;
+    });
+    events.on('pbr.reset', () => {
+        if (current) {
+            current.resetToGlbDefaults();
+            events.fire('pbr.glbDefaults', current.getGlbDefaults());
+        }
     });
 };
 

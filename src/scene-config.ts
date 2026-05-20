@@ -20,8 +20,8 @@ const sceneConfig = {
         overlay: false
     },
     show: {
-        grid: true,
-        bound: true,
+        grid: false,
+        bound: false,
         cameraPoses: false,
         shBands: 3
     },
