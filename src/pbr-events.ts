@@ -1,19 +1,25 @@
-// Wires the PBR panel's events to the loaders/scene. Owns the currently-loaded
-// PbrMesh and the current cubemap so subsequent loads can swap them out.
+// Glue between the PBR panel and the scene/loaders. The panel fires
+//   'pbr.selectRoom' { room }   — user picked a different room
+//   'pbr.selectGlb'  { glb  }   — user picked a different GLB
+//   'pbr.roughness' / 'pbr.metallic' / 'pbr.exposure' / 'pbr.reset'
+// The cubemap used for IBL is implicit: '<room>_cubemap'.
 
 import { Scene } from './scene';
 import { Events } from './events';
 import { PbrMesh } from './pbr-mesh';
 import { loadGlb, loadCubemap, applyCubemapIbl, clearCubemap } from './pbr-mesh-loader';
 
-// URLs are relative to the same origin that serves SuperSplat (serve_spz.py).
 const GLB_URL      = (name: string) => `/glb/${name}.glb`;
 const CUBE_URL     = (env: string)  => `/cube/${env}`;
 const ROOM_PLY_URL = (name: string) => `/room-ply/${name}.ply`;
+const cubemapNameFor = (room: string) => `${room}_cubemap`;
 
 const registerPbrEvents = (scene: Scene, events: Events) => {
-    let current: PbrMesh | null = null;
-    let currentCubemap: any = null;
+    let currentRoom: string | null = null;
+    let currentGlb: string | null = null;
+    let currentMesh: PbrMesh | null = null;
+    let currentCubemap: any = null;        // PlayCanvas Texture
+    let cubemapRoomTag: string | null = null;  // which room this cubemap belongs to
 
     // Populate the dropdowns once at startup.
     (async () => {
@@ -24,67 +30,85 @@ const registerPbrEvents = (scene: Scene, events: Events) => {
                 events.fire('pbr.options', opts);
             }
         } catch (e) {
-            console.warn('[pbr] /pbr-assets endpoint unreachable; using built-in defaults', e);
+            console.warn('[pbr] /pbr-assets unreachable', e);
         }
     })();
 
-    events.on('pbr.load', async ({ glb, cubemap }: { glb: string, cubemap: string }) => {
+    // Make sure the cubemap matching the current room is loaded and applied.
+    // Returns the Texture (or null on failure).
+    const ensureCubemapForRoom = async (room: string) => {
+        if (cubemapRoomTag === room && currentCubemap) return currentCubemap;
         const app = (scene as any).app;
         try {
-            console.log('[pbr] loading GLB', glb, 'cubemap', cubemap);
-            const [mesh, cube] = await Promise.all([
-                loadGlb(app, GLB_URL(glb), glb),
-                loadCubemap(app, CUBE_URL(cubemap))
-            ]);
-            // Tear down previous load
-            if (current) {
-                scene.remove(current);
-                current = null;
-            }
-            if (currentCubemap) {
-                clearCubemap(app);
-                currentCubemap = null;
-            }
-            // Add new
-            await scene.add(mesh);
-            current = mesh;
+            const cube = await loadCubemap(app, CUBE_URL(cubemapNameFor(room)));
             applyCubemapIbl(app, cube, true);
             currentCubemap = cube;
-            // Snap the panel sliders to the GLB's shipped material values.
-            events.fire('pbr.glbDefaults', mesh.getGlbDefaults());
-            console.log('[pbr] loaded; defaults', mesh.getGlbDefaults());
+            cubemapRoomTag = room;
+            console.log('[pbr] cubemap applied for room', room);
+            return cube;
         } catch (err) {
-            console.error('[pbr] load failed:', err);
+            console.error('[pbr] cubemap load failed for room', room, err);
+            return null;
         }
-    });
+    };
 
-    // Hand a room PLY URL to SuperSplat's own importer — it handles 3DGS PLYs
-    // natively, including the camera-fit and the splat layer setup.
-    events.on('pbr.loadRoom', async ({ room }: { room: string }) => {
-        const url = ROOM_PLY_URL(room);
+    // ── Room: load PLY + cubemap together ──
+    events.on('pbr.selectRoom', async ({ room }: { room: string }) => {
+        if (room === currentRoom) return;
+        currentRoom = room;
         try {
-            console.log('[pbr] loading room', room, url);
-            await events.invoke('import', [{ filename: `${room}.ply`, url }]);
+            // 1. Bring in the cubemap first so any existing GLB is correctly lit
+            //    even before the room splats finish streaming.
+            await ensureCubemapForRoom(room);
+            // 2. Load the room PLY via SuperSplat's own importer.
+            console.log('[pbr] loading room', room);
+            await events.invoke('import', [{ filename: `${room}.ply`, url: ROOM_PLY_URL(room) }]);
             console.log('[pbr] room loaded');
         } catch (err) {
             console.error('[pbr] room load failed:', err);
         }
     });
 
+    // ── GLB: load and apply the current room's cubemap as IBL ──
+    events.on('pbr.selectGlb', async ({ glb }: { glb: string }) => {
+        if (glb === currentGlb && currentMesh) return;
+        const app = (scene as any).app;
+        try {
+            // Make sure we have a cubemap before instantiating PBR materials,
+            // otherwise they ship without IBL data.
+            const room = currentRoom ?? 'Coastal_Loft_Living';
+            await ensureCubemapForRoom(room);
+
+            console.log('[pbr] loading GLB', glb);
+            const mesh = await loadGlb(app, GLB_URL(glb), glb);
+            if (currentMesh) {
+                scene.remove(currentMesh);
+                currentMesh = null;
+            }
+            await scene.add(mesh);
+            currentMesh = mesh;
+            currentGlb = glb;
+            events.fire('pbr.glbDefaults', mesh.getGlbDefaults());
+            console.log('[pbr] GLB loaded; defaults', mesh.getGlbDefaults());
+        } catch (err) {
+            console.error('[pbr] GLB load failed:', err);
+        }
+    });
+
     events.on('pbr.roughness', (v: number) => {
-        if (current) current.setRoughness(v);
+        if (currentMesh) currentMesh.setRoughness(v);
     });
     events.on('pbr.metallic', (v: number) => {
-        if (current) current.setMetallic(v);
+        if (currentMesh) currentMesh.setMetallic(v);
     });
     events.on('pbr.exposure', (v: number) => {
         const app = (scene as any).app;
         if (app && app.scene) app.scene.exposure = v;
     });
     events.on('pbr.reset', () => {
-        if (current) {
-            current.resetToGlbDefaults();
-            events.fire('pbr.glbDefaults', current.getGlbDefaults());
+        if (currentMesh) {
+            currentMesh.resetToGlbDefaults();
+            events.fire('pbr.glbDefaults', currentMesh.getGlbDefaults());
         }
     });
 };
