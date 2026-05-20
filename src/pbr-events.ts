@@ -4,6 +4,8 @@
 //   'pbr.roughness' / 'pbr.metallic' / 'pbr.exposure' / 'pbr.reset'
 // The cubemap used for IBL is implicit: '<room>_cubemap'.
 
+import { TranslateGizmo } from 'playcanvas';
+
 import { Scene } from './scene';
 import { Events } from './events';
 import { PbrMesh } from './pbr-mesh';
@@ -20,6 +22,39 @@ const registerPbrEvents = (scene: Scene, events: Events) => {
     let currentMesh: PbrMesh | null = null;
     let currentCubemap: any = null;        // PlayCanvas Texture
     let cubemapRoomTag: string | null = null;  // which room this cubemap belongs to
+    let gizmo: TranslateGizmo | null = null;
+
+    // Auto-attach a translate gizmo to the loaded PBR mesh so it can be moved
+    // with the mouse like in the standalone PBR viewer. Detached/destroyed
+    // when the GLB is swapped or removed.
+    const attachGizmo = (mesh: PbrMesh) => {
+        const s: any = scene;
+        if (gizmo) {
+            try { gizmo.detach(); (gizmo as any).destroy?.(); } catch (e) {}
+            gizmo = null;
+        }
+        const cam = s.camera?.camera;
+        const layer = s.gizmoLayer;
+        if (!cam || !layer) return;
+        const g = new TranslateGizmo(cam, layer);
+        const updateSize = () => {
+            const canvas = s.canvas;
+            if (!canvas) return;
+            g.size = 1200 / Math.max(canvas.clientWidth, canvas.clientHeight);
+        };
+        updateSize();
+        events.on('camera.resize', updateSize);
+        g.on('render:update', () => { s.forceRender = true; });
+        g.attach([mesh.entity]);
+        gizmo = g;
+    };
+
+    const detachGizmo = () => {
+        if (gizmo) {
+            try { gizmo.detach(); (gizmo as any).destroy?.(); } catch (e) {}
+            gizmo = null;
+        }
+    };
 
     // Populate the dropdowns once at startup.
     (async () => {
@@ -82,12 +117,14 @@ const registerPbrEvents = (scene: Scene, events: Events) => {
             console.log('[pbr] loading GLB', glb);
             const mesh = await loadGlb(app, GLB_URL(glb), glb);
             if (currentMesh) {
+                detachGizmo();
                 scene.remove(currentMesh);
                 currentMesh = null;
             }
             await scene.add(mesh);
             currentMesh = mesh;
             currentGlb = glb;
+            attachGizmo(mesh);
             events.fire('pbr.glbDefaults', mesh.getGlbDefaults());
             console.log('[pbr] GLB loaded; defaults', mesh.getGlbDefaults());
         } catch (err) {
