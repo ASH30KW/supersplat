@@ -25,10 +25,42 @@ class PbrMesh extends Element {
         this.asset = asset;
         // ContainerHandler's resource has .instantiateRenderEntity()
         const container: any = asset.resource;
-        this.entity = container.instantiateRenderEntity();
-        this.entity.name = `pbr-mesh:${asset.name}`;
-        this._collectMaterials(this.entity);
+        const glbEntity: Entity = container.instantiateRenderEntity();
+        glbEntity.name = `pbr-mesh-glb:${asset.name}`;
+        this._collectMaterials(glbEntity);
         this._snapshotDefaults();
+
+        // Wrap the GLB in a pivot entity at its bounding-box center so the
+        // gizmo, rotation, and scale all act around the visible center of the
+        // mesh rather than the (often off-center) GLB authored origin.
+        this.entity = new Entity(`pbr-mesh:${asset.name}`);
+        this.entity.addChild(glbEntity);
+        const center = this._computeBoundsCenter(glbEntity);
+        glbEntity.setLocalPosition(-center.x, -center.y, -center.z);
+    }
+
+    /** Mean of all mesh-instance AABB centers (world == local here since the
+     *  entity hasn't been added to a transformed parent yet). */
+    private _computeBoundsCenter(root: Entity): Vec3 {
+        const bound = new BoundingBox();
+        let first = true;
+        const stack: Entity[] = [root];
+        while (stack.length) {
+            const e = stack.pop()!;
+            const render = e.render;
+            if (render) {
+                for (const mi of render.meshInstances) {
+                    if (first) {
+                        bound.copy(mi.aabb);
+                        first = false;
+                    } else {
+                        bound.add(mi.aabb);
+                    }
+                }
+            }
+            for (const child of e.children) stack.push(child as Entity);
+        }
+        return first ? new Vec3(0, 0, 0) : bound.center.clone();
     }
 
     private _snapshotDefaults() {
