@@ -1,11 +1,8 @@
 @use 'colors.scss' as *;
 
-// Position the PBR panel right under the Scene Manager (top-left).
-// Scene Manager sits at top: 102px, left: 24px, width: 320px and can grow up
-// to ~360px tall (header + max-300px splat list). 470px starts well below it
-// even with several rooms loaded; the panel still fits in 720p viewports.
+// Scene Manager panel removed — PBR panel takes its top-left slot.
 #pbr-panel {
-    top: 470px;
+    top: 102px;
     left: 24px;
     width: 320px;
     flex-direction: column;
@@ -26,6 +23,25 @@
 
         & > .view-panel-row-picker {
             min-width: 180px;
+        }
+    }
+
+    // Move / Rotate / Scale button group
+    .pbr-gizmo-row {
+        display: flex;
+        flex-direction: row;
+        gap: 4px;
+        min-width: 180px;
+
+        .pbr-gizmo-btn {
+            flex: 1;
+            font-size: 11px;
+            padding: 4px 0;
+
+            &.pbr-gizmo-active {
+                background-color: $clr-hilight;
+                color: $clr-active;
+            }
         }
     }
 }

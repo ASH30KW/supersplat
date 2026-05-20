@@ -4,11 +4,15 @@
 //   'pbr.roughness' / 'pbr.metallic' / 'pbr.exposure' / 'pbr.reset'
 // The cubemap used for IBL is implicit: '<room>_cubemap'.
 
-import { TranslateGizmo } from 'playcanvas';
+import { RotateGizmo, ScaleGizmo, TranslateGizmo } from 'playcanvas';
+
+type GizmoMode = 'translate' | 'rotate' | 'scale';
+type AnyGizmo = TranslateGizmo | RotateGizmo | ScaleGizmo;
 
 import { Scene } from './scene';
 import { Events } from './events';
 import { PbrMesh } from './pbr-mesh';
+import { ElementType } from './element';
 import { loadGlb, loadCubemap, applyCubemapIbl, clearCubemap } from './pbr-mesh-loader';
 
 const GLB_URL      = (name: string) => `/glb/${name}.glb`;
@@ -22,12 +26,13 @@ const registerPbrEvents = (scene: Scene, events: Events) => {
     let currentMesh: PbrMesh | null = null;
     let currentCubemap: any = null;        // PlayCanvas Texture
     let cubemapRoomTag: string | null = null;  // which room this cubemap belongs to
-    let gizmo: TranslateGizmo | null = null;
+    let gizmo: AnyGizmo | null = null;
+    let gizmoMode: GizmoMode = 'translate';
 
-    // Auto-attach a translate gizmo to the loaded PBR mesh so it can be moved
-    // with the mouse like in the standalone PBR viewer. Detached/destroyed
-    // when the GLB is swapped or removed.
-    const attachGizmo = (mesh: PbrMesh) => {
+    // Attach a gizmo of the given mode to the PbrMesh's entity. Recreates the
+    // gizmo from scratch when switching mode — Translate/Rotate/Scale are
+    // distinct PlayCanvas classes, can't reuse one instance.
+    const attachGizmo = (mesh: PbrMesh, mode: GizmoMode = gizmoMode) => {
         const s: any = scene;
         if (gizmo) {
             try { gizmo.detach(); (gizmo as any).destroy?.(); } catch (e) {}
@@ -36,7 +41,10 @@ const registerPbrEvents = (scene: Scene, events: Events) => {
         const cam = s.camera?.camera;
         const layer = s.gizmoLayer;
         if (!cam || !layer) return;
-        const g = new TranslateGizmo(cam, layer);
+        const Ctor = mode === 'rotate' ? RotateGizmo
+                  : mode === 'scale'  ? ScaleGizmo
+                                      : TranslateGizmo;
+        const g = new Ctor(cam, layer);
         const updateSize = () => {
             const canvas = s.canvas;
             if (!canvas) return;
@@ -47,6 +55,7 @@ const registerPbrEvents = (scene: Scene, events: Events) => {
         g.on('render:update', () => { s.forceRender = true; });
         g.attach([mesh.entity]);
         gizmo = g;
+        gizmoMode = mode;
     };
 
     const detachGizmo = () => {
@@ -55,6 +64,11 @@ const registerPbrEvents = (scene: Scene, events: Events) => {
             gizmo = null;
         }
     };
+
+    events.on('pbr.gizmoMode', (mode: GizmoMode) => {
+        if (currentMesh) attachGizmo(currentMesh, mode);
+        else gizmoMode = mode;
+    });
 
     // Populate the dropdowns once at startup.
     (async () => {
@@ -95,7 +109,11 @@ const registerPbrEvents = (scene: Scene, events: Events) => {
             // 1. Bring in the cubemap first so any existing GLB is correctly lit
             //    even before the room splats finish streaming.
             await ensureCubemapForRoom(room);
-            // 2. Load the room PLY via SuperSplat's own importer.
+            // 2. Drop any previously-loaded room splats so only the current
+            //    selection is visible.
+            const existing = scene.getElementsByType(ElementType.splat);
+            for (const el of existing) scene.remove(el);
+            // 3. Load the room PLY via SuperSplat's own importer.
             console.log('[pbr] loading room', room);
             await events.invoke('import', [{ filename: `${room}.ply`, url: ROOM_PLY_URL(room) }]);
             console.log('[pbr] room loaded');
@@ -132,20 +150,28 @@ const registerPbrEvents = (scene: Scene, events: Events) => {
         }
     });
 
+    // Sliders only mutate material parameters; the renderer is otherwise idle
+    // when the camera isn't moving, so we have to nudge it to redraw.
+    const forceRender = () => { (scene as any).forceRender = true; };
+
     events.on('pbr.roughness', (v: number) => {
         if (currentMesh) currentMesh.setRoughness(v);
+        forceRender();
     });
     events.on('pbr.metallic', (v: number) => {
         if (currentMesh) currentMesh.setMetallic(v);
+        forceRender();
     });
     events.on('pbr.exposure', (v: number) => {
         const app = (scene as any).app;
         if (app && app.scene) app.scene.exposure = v;
+        forceRender();
     });
     events.on('pbr.reset', () => {
         if (currentMesh) {
             currentMesh.resetToGlbDefaults();
             events.fire('pbr.glbDefaults', currentMesh.getGlbDefaults());
+            forceRender();
         }
     });
 };

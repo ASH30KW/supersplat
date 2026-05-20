@@ -49,6 +49,27 @@ class PbrPanel extends Container {
         glbRow.append(glbSelect);
         this.append(glbRow);
 
+        // ── Transform gizmo mode (move / rotate / scale) ──
+        const gizmoRow = new Container({ class: 'view-panel-row' });
+        gizmoRow.append(new Label({ text: 'Transform', class: 'view-panel-row-label' }));
+        const gizmoBtns = new Container({ class: ['view-panel-row-picker', 'pbr-gizmo-row'] });
+        const moveBtn  = new Button({ text: 'Move',   class: ['pbr-gizmo-btn', 'pbr-gizmo-active'] });
+        const rotBtn   = new Button({ text: 'Rotate', class: 'pbr-gizmo-btn' });
+        const scaleBtn = new Button({ text: 'Scale',  class: 'pbr-gizmo-btn' });
+        gizmoBtns.append(moveBtn);
+        gizmoBtns.append(rotBtn);
+        gizmoBtns.append(scaleBtn);
+        gizmoRow.append(gizmoBtns);
+        this.append(gizmoRow);
+        const pickGizmo = (mode: 'translate' | 'rotate' | 'scale', active: any) => {
+            for (const b of [moveBtn, rotBtn, scaleBtn]) b.class.remove('pbr-gizmo-active');
+            active.class.add('pbr-gizmo-active');
+            events.fire('pbr.gizmoMode', mode);
+        };
+        moveBtn.on('click', () => pickGizmo('translate', moveBtn));
+        rotBtn.on('click', () => pickGizmo('rotate', rotBtn));
+        scaleBtn.on('click', () => pickGizmo('scale', scaleBtn));
+
         // ── Sliders ──
         const roughRow = new Container({ class: 'view-panel-row' });
         roughRow.append(new Label({ text: 'Roughness', class: 'view-panel-row-label' }));
