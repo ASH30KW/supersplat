@@ -45,6 +45,13 @@ const registerPbrEvents = (scene: Scene, events: Events) => {
                   : mode === 'scale'  ? ScaleGizmo
                                       : TranslateGizmo;
         const g = new Ctor(cam, layer);
+        // Scale: hide per-axis/plane handles and keep only the central xyz box
+        // so dragging always scales uniformly (matches SuperSplat's own tool).
+        if (mode === 'scale') {
+            const sg = g as ScaleGizmo;
+            (['x', 'y', 'z', 'yz', 'xz', 'xy'] as const).forEach(a => sg.enableShape(a, false));
+            sg.lowerBoundScale.set(1e-6, 1e-6, 1e-6);
+        }
         const updateSize = () => {
             const canvas = s.canvas;
             if (!canvas) return;
