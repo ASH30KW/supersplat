@@ -151,6 +151,7 @@ const registerPbrEvents = (scene: Scene, events: Events) => {
             currentGlb = glb;
             attachGizmo(mesh);
             events.fire('pbr.glbDefaults', mesh.getGlbDefaults());
+            events.fire('pbr.glbLoaded');
             console.log('[pbr] GLB loaded; defaults', mesh.getGlbDefaults());
         } catch (err) {
             console.error('[pbr] GLB load failed:', err);
@@ -180,6 +181,23 @@ const registerPbrEvents = (scene: Scene, events: Events) => {
             events.fire('pbr.glbDefaults', currentMesh.getGlbDefaults());
             forceRender();
         }
+    });
+
+    // Uniform scale via manual input. The Scale gizmo is also wired but this
+    // gives exact values.
+    events.on('pbr.scale', (v: number) => {
+        if (!currentMesh) return;
+        const s = Math.max(1e-4, v);
+        currentMesh.entity.setLocalScale(s, s, s);
+        forceRender();
+    });
+
+    // Rotation via three Euler-angle inputs (degrees). Simpler than the arc
+    // gizmo when you want a precise value.
+    events.on('pbr.rotation', (e: { x: number; y: number; z: number }) => {
+        if (!currentMesh) return;
+        currentMesh.entity.setLocalEulerAngles(e.x, e.y, e.z);
+        forceRender();
     });
 };
 

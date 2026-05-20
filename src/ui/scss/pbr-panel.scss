@@ -26,22 +26,4 @@
         }
     }
 
-    // Move / Rotate / Scale button group
-    .pbr-gizmo-row {
-        display: flex;
-        flex-direction: row;
-        gap: 4px;
-        min-width: 180px;
-
-        .pbr-gizmo-btn {
-            flex: 1;
-            font-size: 11px;
-            padding: 4px 0;
-
-            &.pbr-gizmo-active {
-                background-color: $clr-hilight;
-                color: $clr-active;
-            }
-        }
-    }
 }

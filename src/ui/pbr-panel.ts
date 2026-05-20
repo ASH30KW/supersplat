@@ -2,7 +2,7 @@
 // with the cubemap that matches the loaded 3DGS room. Selections trigger
 // loads automatically — no explicit Load buttons.
 
-import { Button, Container, Label, SelectInput, SliderInput } from '@playcanvas/pcui';
+import { Button, Container, Label, NumericInput, SelectInput, SliderInput, VectorInput } from '@playcanvas/pcui';
 
 import { Events } from '../events';
 
@@ -49,26 +49,23 @@ class PbrPanel extends Container {
         glbRow.append(glbSelect);
         this.append(glbRow);
 
-        // ── Transform gizmo mode (move / rotate / scale) ──
-        const gizmoRow = new Container({ class: 'view-panel-row' });
-        gizmoRow.append(new Label({ text: 'Transform', class: 'view-panel-row-label' }));
-        const gizmoBtns = new Container({ class: ['view-panel-row-picker', 'pbr-gizmo-row'] });
-        const moveBtn  = new Button({ text: 'Move',   class: ['pbr-gizmo-btn', 'pbr-gizmo-active'] });
-        const rotBtn   = new Button({ text: 'Rotate', class: 'pbr-gizmo-btn' });
-        const scaleBtn = new Button({ text: 'Scale',  class: 'pbr-gizmo-btn' });
-        gizmoBtns.append(moveBtn);
-        gizmoBtns.append(rotBtn);
-        gizmoBtns.append(scaleBtn);
-        gizmoRow.append(gizmoBtns);
-        this.append(gizmoRow);
-        const pickGizmo = (mode: 'translate' | 'rotate' | 'scale', active: any) => {
-            for (const b of [moveBtn, rotBtn, scaleBtn]) b.class.remove('pbr-gizmo-active');
-            active.class.add('pbr-gizmo-active');
-            events.fire('pbr.gizmoMode', mode);
-        };
-        moveBtn.on('click', () => pickGizmo('translate', moveBtn));
-        rotBtn.on('click', () => pickGizmo('rotate', rotBtn));
-        scaleBtn.on('click', () => pickGizmo('scale', scaleBtn));
+        // Translation stays on the 3D gizmo (best UX for positioning).
+        // Rotation + Scale move to manual numeric inputs below — more precise
+        // than dragging arcs or boxes.
+        events.fire('pbr.gizmoMode', 'translate');
+
+        // ── Rotation (Euler degrees, X / Y / Z) ──
+        const rotRow = new Container({ class: 'view-panel-row' });
+        rotRow.append(new Label({ text: 'Rotation', class: 'view-panel-row-label' }));
+        const rotInput = new VectorInput({
+            class: 'view-panel-row-picker',
+            dimensions: 3,
+            precision: 1,
+            placeholder: ['X', 'Y', 'Z'],
+            value: [0, 0, 0]
+        });
+        rotRow.append(rotInput);
+        this.append(rotRow);
 
         // ── Sliders ──
         const roughRow = new Container({ class: 'view-panel-row' });
@@ -95,6 +92,16 @@ class PbrPanel extends Container {
         expRow.append(expSlider);
         this.append(expRow);
 
+        // Uniform scale — type any positive number, no slider clamp.
+        const scaleRow = new Container({ class: 'view-panel-row' });
+        scaleRow.append(new Label({ text: 'Scale', class: 'view-panel-row-label' }));
+        const scaleInput = new NumericInput({
+            class: 'view-panel-row-picker',
+            value: 1.0, min: 0.001, max: 10000, precision: 3
+        });
+        scaleRow.append(scaleInput);
+        this.append(scaleRow);
+
         // ── Reset to GLB defaults ──
         const resetRow = new Container({ class: 'view-panel-row' });
         const resetBtn = new Button({
@@ -116,7 +123,17 @@ class PbrPanel extends Container {
         roughSlider.on('change', (v: number) => events.fire('pbr.roughness', v));
         metalSlider.on('change', (v: number) => events.fire('pbr.metallic', v));
         expSlider.on('change', (v: number) => events.fire('pbr.exposure', v));
+        scaleInput.on('change', (v: number) => events.fire('pbr.scale', v));
+        rotInput.on('change', (v: number[]) => {
+            events.fire('pbr.rotation', { x: v[0] || 0, y: v[1] || 0, z: v[2] || 0 });
+        });
         resetBtn.on('click', () => events.fire('pbr.reset'));
+
+        // Reset scale + rotation to identity whenever a fresh GLB loads.
+        events.on('pbr.glbLoaded', () => {
+            scaleInput.value = 1.0;
+            rotInput.value = [0, 0, 0];
+        });
 
         // Snap the sliders to the GLB's shipped defaults right after a load.
         events.on('pbr.glbDefaults', (d: { roughness: number; metallic: number }) => {
