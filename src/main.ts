@@ -32,7 +32,6 @@ import { SphereSelection } from './tools/sphere-selection';
 import { ToolManager } from './tools/tool-manager';
 import { registerTrackManagerEvents } from './track-manager';
 import { registerTransformHandlerEvents } from './transform-handler';
-import { registerFocalMarker } from './focal-marker';
 import { registerPbrEvents } from './pbr-events';
 import { EditorUI } from './ui/editor';
 import { localizeInit } from './ui/localization';
@@ -253,7 +252,6 @@ const main = async () => {
     registerDocEvents(scene, events);
     registerRenderEvents(scene, events);
     initFileHandler(scene, events, editorUI.appContainer.dom);
-    registerFocalMarker(scene, events);
     registerPbrEvents(scene, events);
 
     // load async models
