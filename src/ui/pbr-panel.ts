@@ -60,7 +60,8 @@ class PbrPanel extends Container {
         const rotInput = new VectorInput({
             class: 'view-panel-row-picker',
             dimensions: 3,
-            precision: 1,
+            precision: 0,
+            step: 1,
             placeholder: ['X', 'Y', 'Z'],
             value: [0, 0, 0]
         });
