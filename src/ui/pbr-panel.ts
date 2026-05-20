@@ -156,6 +156,12 @@ class PbrPanel extends Container {
         plHelperRow.append(plHelper);
         this.append(plHelperRow);
 
+        // When the user drags the light's gizmo in the 3D viewport, sync the
+        // panel's X/Y/Z inputs to the new position.
+        events.on('pbr.pointLight.positionChanged', (p: { x: number; y: number; z: number }) => {
+            plPos.value = [p.x, p.y, p.z];
+        });
+
         plEnable.on('change', (v: boolean) => events.fire('pbr.pointLight.enable', v));
         plHelper.on('change', (v: boolean) => events.fire('pbr.pointLight.showHelper', v));
         plPos.on('change', (v: number[]) => events.fire('pbr.pointLight.position',

@@ -11,6 +11,7 @@ import {
     MeshInstance,
     SphereGeometry,
     StandardMaterial,
+    TranslateGizmo,
     Vec3
 } from 'playcanvas';
 
@@ -75,17 +76,51 @@ const registerPbrPointLight = (scene: Scene, events: Events) => {
     lightEntity.addChild(bulbEntity);
 
     const state: PointLightOptions = { ...DEFAULTS };
+    let gizmo: TranslateGizmo | null = null;
+
+    const attachGizmo = () => {
+        if (gizmo) return;
+        const cam = (scene as any).camera?.camera;
+        const layer = (scene as any).gizmoLayer;
+        if (!cam || !layer) return;
+        const g = new TranslateGizmo(cam, layer);
+        const updateSize = () => {
+            const canvas = (scene as any).canvas;
+            if (!canvas) return;
+            g.size = 1200 / Math.max(canvas.clientWidth, canvas.clientHeight);
+        };
+        updateSize();
+        events.on('camera.resize', updateSize);
+        g.on('render:update', () => { (scene as any).forceRender = true; });
+        // After a drag finishes, push the new position back to the panel so
+        // the X/Y/Z numeric inputs reflect it.
+        g.on('transform:end', () => {
+            const p = lightEntity.getLocalPosition();
+            state.position = { x: p.x, y: p.y, z: p.z };
+            events.fire('pbr.pointLight.positionChanged', state.position);
+        });
+        g.attach([lightEntity]);
+        gizmo = g;
+    };
+
+    const detachGizmo = () => {
+        if (!gizmo) return;
+        try { gizmo.detach(); (gizmo as any).destroy?.(); } catch (e) {}
+        gizmo = null;
+    };
 
     const sync = () => {
         const c = lightEntity.light;
         c.color = new Color(state.color.r, state.color.g, state.color.b);
         c.intensity = state.intensity;
         c.range = state.range > 0 ? state.range : 100;
-        lightEntity.setPosition(state.position.x, state.position.y, state.position.z);
+        lightEntity.setLocalPosition(state.position.x, state.position.y, state.position.z);
         bulbMat.emissive = new Color(state.color.r, state.color.g, state.color.b);
         bulbMat.update();
         lightEntity.enabled = state.enabled;
         bulbEntity.enabled = state.enabled && state.showHelper;
+        // Gizmo only meaningful while the light is on.
+        if (state.enabled) attachGizmo(); else detachGizmo();
         (scene as any).forceRender = true;
     };
 
