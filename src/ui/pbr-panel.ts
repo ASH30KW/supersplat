@@ -2,7 +2,7 @@
 // with the cubemap that matches the loaded 3DGS room. Selections trigger
 // loads automatically — no explicit Load buttons.
 
-import { Button, Container, Label, NumericInput, SelectInput, SliderInput, VectorInput } from '@playcanvas/pcui';
+import { BooleanInput, Button, ColorPicker, Container, Label, NumericInput, SelectInput, SliderInput, VectorInput } from '@playcanvas/pcui';
 
 import { Events } from '../events';
 
@@ -102,6 +102,68 @@ class PbrPanel extends Container {
         });
         scaleRow.append(scaleInput);
         this.append(scaleRow);
+
+        // ── Point light (extra discrete light source for the PBR mesh) ──
+        const plHeader = new Label({ text: '— Point Light —', class: 'pbr-section-label' });
+        this.append(plHeader);
+
+        const plEnableRow = new Container({ class: 'view-panel-row' });
+        plEnableRow.append(new Label({ text: 'Enable', class: 'view-panel-row-label' }));
+        const plEnable = new BooleanInput({ class: 'view-panel-row-picker', type: 'toggle', value: false });
+        plEnableRow.append(plEnable);
+        this.append(plEnableRow);
+
+        const plPosRow = new Container({ class: 'view-panel-row' });
+        plPosRow.append(new Label({ text: 'Position', class: 'view-panel-row-label' }));
+        const plPos = new VectorInput({
+            class: 'view-panel-row-picker',
+            dimensions: 3,
+            precision: 2,
+            placeholder: ['X', 'Y', 'Z'],
+            value: [2, 3, 2]
+        });
+        plPosRow.append(plPos);
+        this.append(plPosRow);
+
+        const plIntRow = new Container({ class: 'view-panel-row' });
+        plIntRow.append(new Label({ text: 'Intensity', class: 'view-panel-row-label' }));
+        const plInt = new SliderInput({
+            class: 'view-panel-row-picker', min: 0, max: 200, value: 30, precision: 1
+        });
+        plIntRow.append(plInt);
+        this.append(plIntRow);
+
+        const plRangeRow = new Container({ class: 'view-panel-row' });
+        plRangeRow.append(new Label({ text: 'Range', class: 'view-panel-row-label' }));
+        const plRange = new SliderInput({
+            class: 'view-panel-row-picker', min: 0, max: 50, value: 0, precision: 1
+        });
+        plRangeRow.append(plRange);
+        this.append(plRangeRow);
+
+        const plColorRow = new Container({ class: 'view-panel-row' });
+        plColorRow.append(new Label({ text: 'Color', class: 'view-panel-row-label' }));
+        const plColor = new ColorPicker({
+            class: 'view-panel-row-picker',
+            value: [1, 1, 1]
+        });
+        plColorRow.append(plColor);
+        this.append(plColorRow);
+
+        const plHelperRow = new Container({ class: 'view-panel-row' });
+        plHelperRow.append(new Label({ text: 'Show bulb', class: 'view-panel-row-label' }));
+        const plHelper = new BooleanInput({ class: 'view-panel-row-picker', type: 'toggle', value: true });
+        plHelperRow.append(plHelper);
+        this.append(plHelperRow);
+
+        plEnable.on('change', (v: boolean) => events.fire('pbr.pointLight.enable', v));
+        plHelper.on('change', (v: boolean) => events.fire('pbr.pointLight.showHelper', v));
+        plPos.on('change', (v: number[]) => events.fire('pbr.pointLight.position',
+            { x: v[0] || 0, y: v[1] || 0, z: v[2] || 0 }));
+        plInt.on('change',   (v: number) => events.fire('pbr.pointLight.intensity', v));
+        plRange.on('change', (v: number) => events.fire('pbr.pointLight.range', v));
+        plColor.on('change', (rgb: number[]) => events.fire('pbr.pointLight.color',
+            { r: rgb[0] ?? 1, g: rgb[1] ?? 1, b: rgb[2] ?? 1 }));
 
         // ── Reset to GLB defaults ──
         const resetRow = new Container({ class: 'view-panel-row' });

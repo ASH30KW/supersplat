@@ -7,6 +7,15 @@
     width: 320px;
     flex-direction: column;
     display: flex;
+    max-height: calc(100vh - 140px);
+    overflow-y: auto;
+
+    .pbr-section-label {
+        padding: 8px 6px 2px 6px;
+        font-size: 11px;
+        color: $text-secondary;
+        letter-spacing: 1px;
+    }
 
     & > .view-panel-row {
         display: flex;
