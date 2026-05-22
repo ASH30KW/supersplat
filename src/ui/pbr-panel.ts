@@ -171,36 +171,6 @@ class PbrPanel extends Container {
         plColor.on('change', (rgb: number[]) => events.fire('pbr.pointLight.color',
             { r: rgb[0] ?? 1, g: rgb[1] ?? 1, b: rgb[2] ?? 1 }));
 
-        // ── Shadow (catcher plane under the GLB, driven by the point light) ──
-        const shHeader = new Label({ text: '— Shadow —', class: 'pbr-section-label' });
-        this.append(shHeader);
-
-        const shEnableRow = new Container({ class: 'view-panel-row' });
-        shEnableRow.append(new Label({ text: 'Enable', class: 'view-panel-row-label' }));
-        const shEnable = new BooleanInput({ class: 'view-panel-row-picker', type: 'toggle', value: false });
-        shEnableRow.append(shEnable);
-        this.append(shEnableRow);
-
-        const shStrRow = new Container({ class: 'view-panel-row' });
-        shStrRow.append(new Label({ text: 'Strength', class: 'view-panel-row-label' }));
-        const shStr = new SliderInput({
-            class: 'view-panel-row-picker', min: 0, max: 1, value: 0.5, precision: 2
-        });
-        shStrRow.append(shStr);
-        this.append(shStrRow);
-
-        const shSizeRow = new Container({ class: 'view-panel-row' });
-        shSizeRow.append(new Label({ text: 'Size ×', class: 'view-panel-row-label' }));
-        const shSize = new SliderInput({
-            class: 'view-panel-row-picker', min: 0.5, max: 5, value: 2.0, precision: 2
-        });
-        shSizeRow.append(shSize);
-        this.append(shSizeRow);
-
-        shEnable.on('change', (v: boolean) => events.fire('pbr.shadow.enable', v));
-        shStr.on('change',    (v: number)  => events.fire('pbr.shadow.strength', v));
-        shSize.on('change',   (v: number)  => events.fire('pbr.shadow.size', v));
-
         // ── Reset to GLB defaults ──
         const resetRow = new Container({ class: 'view-panel-row' });
         const resetBtn = new Button({
