@@ -34,6 +34,7 @@ import { registerTrackManagerEvents } from './track-manager';
 import { registerTransformHandlerEvents } from './transform-handler';
 import { registerPbrEvents } from './pbr-events';
 import { registerPbrPointLight } from './pbr-point-light';
+import { registerPbrShadow } from './pbr-shadow';
 import { EditorUI } from './ui/editor';
 import { localizeInit } from './ui/localization';
 
@@ -255,6 +256,7 @@ const main = async () => {
     initFileHandler(scene, events, editorUI.appContainer.dom);
     registerPbrEvents(scene, events);
     registerPbrPointLight(scene, events);
+    registerPbrShadow(scene, events);
 
     // load async models
     scene.start();

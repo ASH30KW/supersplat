@@ -150,6 +150,7 @@ const registerPbrEvents = (scene: Scene, events: Events) => {
             currentMesh = mesh;
             currentGlb = glb;
             attachGizmo(mesh);
+            events.fire('pbr.meshChanged', mesh);
             events.fire('pbr.glbDefaults', mesh.getGlbDefaults());
             events.fire('pbr.glbLoaded');
             console.log('[pbr] GLB loaded; defaults', mesh.getGlbDefaults());

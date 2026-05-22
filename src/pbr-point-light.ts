@@ -140,6 +140,8 @@ const registerPbrPointLight = (scene: Scene, events: Events) => {
 
     // Expose defaults so the panel can populate widget values on mount.
     events.fire('pbr.pointLight.defaults', DEFAULTS);
+    // Expose the light entity so the shadow catcher can toggle castShadows.
+    events.fire('pbr.pointLight.entity', lightEntity);
 };
 
 export { registerPbrPointLight };
